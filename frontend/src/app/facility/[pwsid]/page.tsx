@@ -1,4 +1,5 @@
-import { getWaterSystemByPWSID } from '@/lib/database';
+import { getWaterSystemByPWSID, getViolationCalendarData, ViolationCalendarData } from '@/lib/database';
+import ViolationCalendar from '@/components/violation-calendar';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -14,6 +15,21 @@ export default function FacilityPage({ params }: FacilityPageProps) {
   if (!system) {
     notFound();
   }
+
+  // Get violation data from 1985 to present
+  const currentDate = new Date();
+  const fromDate = '1985-01-01';
+  const toDate = currentDate.toISOString().split('T')[0];
+  
+  let violationData: ViolationCalendarData[] = [];
+  try {
+    violationData = getViolationCalendarData(params.pwsid, fromDate, toDate);
+  } catch (error) {
+    console.error('Error fetching violation data:', error);
+  }
+
+  // Calculate total violations across all years
+  const totalViolations = violationData.reduce((sum, d) => sum + d.violations.length, 0);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50">
@@ -63,7 +79,10 @@ export default function FacilityPage({ params }: FacilityPageProps) {
             </div>
             <div className="text-right">
               <div className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
-                <div className="w-2 h-2 bg-green-400 rounded-full mr-2"></div>
+                <div className="relative mr-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-ping absolute"></div>
+                  <div className="w-2 h-2 bg-green-400 rounded-full"></div>
+                </div>
                 Active System
               </div>
             </div>
@@ -98,69 +117,14 @@ export default function FacilityPage({ params }: FacilityPageProps) {
           </div>
         </div>
 
-        {/* System Details */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Basic Information */}
-          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              System Information
-            </h3>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600">Public Water System ID</span>
-                <span className="font-mono font-medium">{system.PWSID}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600">System Name</span>
-                <span className="font-medium text-right">{system.PWS_NAME}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600">Location</span>
-                <span className="font-medium">{system.CITY_NAME}, {system.STATE_CODE}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600">Population Served</span>
-                <span className="font-medium">{system.POPULATION_SERVED_COUNT?.toLocaleString() || 'N/A'}</span>
-              </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                <span className="text-gray-600">System Type</span>
-                <span className="font-medium">{system.PWS_TYPE_CODE}</span>
-              </div>
-              <div className="flex justify-between items-center py-2">
-                <span className="text-gray-600">Primary Water Source</span>
-                <span className="font-medium">{system.PRIMARY_SOURCE_CODE}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Compliance Overview */}
-          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 p-6">
-            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center">
-              <svg className="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Compliance Overview
-            </h3>
-            <div className="space-y-6">
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                  </svg>
-                </div>
-                <h4 className="text-lg font-medium text-gray-900 mb-2">Detailed Compliance Data</h4>
-                <p className="text-gray-600">
-                  Violation history, inspection records, and compliance status will be displayed here.
-                </p>
-                <div className="mt-4 text-sm text-blue-600">
-                  Coming soon: AI-powered compliance insights
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Violation Calendar - Full Width */}
+        <div className="mb-8">
+          <ViolationCalendar 
+            data={violationData}
+            from={fromDate}
+            to={toDate}
+            totalViolations={totalViolations}
+          />
         </div>
 
         {/* AI Insights Placeholder */}

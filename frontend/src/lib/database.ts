@@ -23,6 +23,29 @@ export interface WaterSystem {
   PRIMARY_SOURCE_CODE: string;
 }
 
+export interface Violation {
+  VIOLATION_ID: string;
+  PWSID: string;
+  COMPL_PER_BEGIN_DATE: string;
+  COMPL_PER_END_DATE: string;
+  VIOLATION_CODE: string;
+  VIOLATION_CATEGORY_CODE: string;
+  IS_HEALTH_BASED_IND: string;
+  IS_MAJOR_VIOL_IND: string;
+  VIOLATION_STATUS: string;
+  CONTAMINANT_CODE: number;
+  VIOL_FIRST_REPORTED_DATE: string;
+  RULE_CODE: number;
+}
+
+export interface ViolationCalendarData {
+  day: string; // YYYY-MM-DD format
+  value: number; // Weighted severity score
+  healthBased: number; // Count of health-based violations
+  procedural: number; // Count of procedural violations
+  violations: Violation[];
+}
+
 export function searchWaterSystems(query: string): WaterSystem[] {
   const database = getDatabase();
   
@@ -72,4 +95,86 @@ export function getWaterSystemByPWSID(pwsid: string): WaterSystem | null {
   `);
   
   return stmt.get(pwsid) as WaterSystem | null;
+}
+
+export function getViolationsByPWSID(pwsid: string, startDate?: string, endDate?: string): Violation[] {
+  const database = getDatabase();
+  
+  let query = `
+    SELECT 
+      VIOLATION_ID,
+      PWSID,
+      COMPL_PER_BEGIN_DATE,
+      COMPL_PER_END_DATE,
+      VIOLATION_CODE,
+      VIOLATION_CATEGORY_CODE,
+      IS_HEALTH_BASED_IND,
+      IS_MAJOR_VIOL_IND,
+      VIOLATION_STATUS,
+      CONTAMINANT_CODE,
+      VIOL_FIRST_REPORTED_DATE,
+      RULE_CODE
+    FROM sdwa_violations_enforcement 
+    WHERE PWSID = ?
+  `;
+  
+  const params: (string)[] = [pwsid];
+  
+  if (startDate && endDate) {
+    query += ` AND COMPL_PER_BEGIN_DATE >= ? AND COMPL_PER_BEGIN_DATE <= ?`;
+    params.push(startDate, endDate);
+  }
+  
+  query += ` ORDER BY COMPL_PER_BEGIN_DATE DESC`;
+  
+  const stmt = database.prepare(query);
+  return stmt.all(...params) as Violation[];
+}
+
+export function getViolationCalendarData(pwsid: string, startDate: string, endDate: string): ViolationCalendarData[] {
+  const violations = getViolationsByPWSID(pwsid, startDate, endDate);
+  
+  // Group violations by date
+  const violationsByDate = new Map<string, Violation[]>();
+  
+  violations.forEach(violation => {
+    if (violation.COMPL_PER_BEGIN_DATE) {
+      // Convert date to YYYY-MM-DD format
+      const date = new Date(violation.COMPL_PER_BEGIN_DATE).toISOString().split('T')[0];
+      if (!violationsByDate.has(date)) {
+        violationsByDate.set(date, []);
+      }
+      violationsByDate.get(date)!.push(violation);
+    }
+  });
+  
+  // Convert to calendar data format
+  const calendarData: ViolationCalendarData[] = [];
+  
+  violationsByDate.forEach((dayViolations, date) => {
+    let healthBased = 0;
+    let procedural = 0;
+    
+    dayViolations.forEach(violation => {
+      if (violation.IS_HEALTH_BASED_IND === 'Y') {
+        healthBased++;
+      } else {
+        procedural++;
+      }
+    });
+    
+    // Calculate weighted severity score
+    // Health-based violations get weight of 3, procedural get weight of 1
+    const value = (healthBased * 3) + (procedural * 1);
+    
+    calendarData.push({
+      day: date,
+      value,
+      healthBased,
+      procedural,
+      violations: dayViolations
+    });
+  });
+  
+  return calendarData;
 } 
