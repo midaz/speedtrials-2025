@@ -249,4 +249,298 @@ export function getContaminantCodeDescription(contaminantCode: string): Violatio
   `);
   
   return stmt.get(contaminantCode) as ViolationCodeDescription | null;
+}
+
+export interface SiteVisit {
+  VISIT_ID: string;
+  VISIT_DATE: string;
+  AGENCY_TYPE_CODE: string;
+  VISIT_REASON_CODE: string;
+  MANAGEMENT_OPS_EVAL_CODE: string;
+  SOURCE_WATER_EVAL_CODE: string;
+  SECURITY_EVAL_CODE: string;
+  PUMPS_EVAL_CODE: string;
+  OTHER_EVAL_CODE: string;
+  COMPLIANCE_EVAL_CODE: string;
+  DATA_VERIFICATION_EVAL_CODE: string;
+  TREATMENT_EVAL_CODE: string;
+  FINISHED_WATER_STOR_EVAL_CODE: string;
+  DISTRIBUTION_EVAL_CODE: string;
+  FINANCIAL_EVAL_CODE: string;
+  VISIT_COMMENTS: string;
+}
+
+export interface EventMilestone {
+  EVENT_SCHEDULE_ID: string;
+  EVENT_END_DATE: string;
+  EVENT_ACTUAL_DATE: string;
+  EVENT_COMMENTS_TEXT: string;
+  EVENT_MILESTONE_CODE: string;
+  EVENT_REASON_CODE: string;
+}
+
+export interface ComplianceAnalysis {
+  system: WaterSystem;
+  violations: {
+    active: Violation[];
+    total: number;
+    healthBased: number;
+    procedural: number;
+    recentTrend: string;
+  };
+  inspections: {
+    latest: SiteVisit | null;
+    recentFindings: string[];
+  };
+  milestones: EventMilestone[];
+}
+
+export function getRecentSiteVisits(pwsid: string, limit: number = 5): SiteVisit[] {
+  const database = getDatabase();
+  
+  const stmt = database.prepare(`
+    SELECT 
+      VISIT_ID, VISIT_DATE, AGENCY_TYPE_CODE, VISIT_REASON_CODE,
+      MANAGEMENT_OPS_EVAL_CODE, SOURCE_WATER_EVAL_CODE, SECURITY_EVAL_CODE,
+      PUMPS_EVAL_CODE, OTHER_EVAL_CODE, COMPLIANCE_EVAL_CODE,
+      DATA_VERIFICATION_EVAL_CODE, TREATMENT_EVAL_CODE,
+      FINISHED_WATER_STOR_EVAL_CODE, DISTRIBUTION_EVAL_CODE,
+      FINANCIAL_EVAL_CODE, VISIT_COMMENTS
+    FROM sdwa_site_visits 
+    WHERE PWSID = ? AND VISIT_DATE IS NOT NULL
+    ORDER BY VISIT_DATE DESC
+    LIMIT ?
+  `);
+  
+  return stmt.all(pwsid, limit) as SiteVisit[];
+}
+
+export function getEventMilestones(pwsid: string): EventMilestone[] {
+  const database = getDatabase();
+  
+  const stmt = database.prepare(`
+    SELECT 
+      EVENT_SCHEDULE_ID, EVENT_END_DATE, EVENT_ACTUAL_DATE,
+      EVENT_COMMENTS_TEXT, EVENT_MILESTONE_CODE, EVENT_REASON_CODE
+    FROM sdwa_events_milestones 
+    WHERE PWSID = ?
+    ORDER BY EVENT_END_DATE DESC
+  `);
+  
+  return stmt.all(pwsid) as EventMilestone[];
+}
+
+export interface UrgentAction {
+  actionType: 'violation' | 'inspection' | 'milestone' | 'none';
+  priority: 'critical' | 'high' | 'medium';
+  title: string;
+  description: string;
+  daysRemaining: number | null;
+  violationCode?: string;
+  contaminantCode?: string;
+  isHealthBased?: boolean;
+  publicNotificationTier?: number;
+  actionId: string; // Unique identifier for the action
+}
+
+export function getUrgentAction(pwsid: string): UrgentAction | null {
+  const database = getDatabase();
+  
+  // Get all active violations (no end date or unaddressed)
+  const stmt = database.prepare(`
+    SELECT 
+      VIOLATION_ID,
+      VIOLATION_CODE,
+      VIOLATION_CATEGORY_CODE,
+      IS_HEALTH_BASED_IND,
+      CONTAMINANT_CODE,
+      PUBLIC_NOTIFICATION_TIER,
+      COMPL_PER_BEGIN_DATE,
+      COMPL_PER_END_DATE,
+      VIOLATION_STATUS,
+      VIOL_FIRST_REPORTED_DATE
+    FROM sdwa_violations_enforcement 
+    WHERE PWSID = ? 
+      AND (COMPL_PER_END_DATE IS NULL OR COMPL_PER_END_DATE = 'nan' OR VIOLATION_STATUS = 'Unaddressed')
+      AND COMPL_PER_BEGIN_DATE IS NOT NULL 
+      AND COMPL_PER_BEGIN_DATE != 'nan'
+    ORDER BY 
+      CASE WHEN IS_HEALTH_BASED_IND = 'Y' THEN 1 ELSE 2 END,
+      CASE WHEN PUBLIC_NOTIFICATION_TIER = 1 THEN 1 
+           WHEN PUBLIC_NOTIFICATION_TIER = 2 THEN 2 
+           WHEN PUBLIC_NOTIFICATION_TIER = 3 THEN 3 
+           ELSE 4 END,
+      COMPL_PER_BEGIN_DATE ASC
+  `);
+  
+  interface ActiveViolation {
+    VIOLATION_ID: string;
+    VIOLATION_CODE: string;
+    VIOLATION_CATEGORY_CODE: string;
+    IS_HEALTH_BASED_IND: string;
+    CONTAMINANT_CODE: number | null;
+    PUBLIC_NOTIFICATION_TIER: number | null;
+    COMPL_PER_BEGIN_DATE: string;
+    COMPL_PER_END_DATE: string | null;
+    VIOLATION_STATUS: string;
+    VIOL_FIRST_REPORTED_DATE: string;
+  }
+  
+  const activeViolations = stmt.all(pwsid) as ActiveViolation[];
+  
+  if (activeViolations.length === 0) {
+    // Check for recent inspection findings requiring follow-up
+    const recentVisits = getRecentSiteVisits(pwsid, 1);
+    if (recentVisits.length > 0) {
+      const visit = recentVisits[0];
+      const hasSignificantDeficiencies = [
+        visit.MANAGEMENT_OPS_EVAL_CODE,
+        visit.SOURCE_WATER_EVAL_CODE,
+        visit.COMPLIANCE_EVAL_CODE,
+        visit.TREATMENT_EVAL_CODE
+      ].some(code => code === 'S');
+      
+      if (hasSignificantDeficiencies) {
+        return {
+          actionType: 'inspection',
+          priority: 'high',
+          title: 'Address Inspection Findings',
+          description: 'Significant deficiencies found during recent inspection require corrective action',
+          daysRemaining: null,
+          actionId: `inspection-${visit.VISIT_ID}`
+        };
+      }
+    }
+    
+    return {
+      actionType: 'none',
+      priority: 'medium',
+      title: 'No Urgent Actions',
+      description: 'System appears to be in compliance with current monitoring requirements',
+      daysRemaining: null,
+      actionId: 'none'
+    };
+  }
+  
+  // Get the most urgent violation
+  const urgentViolation = activeViolations[0];
+  
+  // Calculate days since violation began
+  let daysRemaining: number | null = null;
+  if (urgentViolation.COMPL_PER_BEGIN_DATE) {
+    const dateParts = urgentViolation.COMPL_PER_BEGIN_DATE.split('/');
+    if (dateParts.length === 3) {
+      const violationDate = new Date(
+        parseInt(dateParts[2]), // year
+        parseInt(dateParts[0]) - 1, // month (0-indexed)
+        parseInt(dateParts[1]) // day
+      );
+      const today = new Date();
+      const daysSinceViolation = Math.floor((today.getTime() - violationDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Health-based violations typically require immediate public notice (24 hours)
+      // Non-health-based violations have 30 days for public notice
+      if (urgentViolation.IS_HEALTH_BASED_IND === 'Y') {
+        daysRemaining = Math.max(0, 1 - daysSinceViolation); // 1 day for health-based
+      } else {
+        daysRemaining = Math.max(0, 30 - daysSinceViolation); // 30 days for non-health-based
+      }
+    }
+  }
+  
+  // Determine priority
+  let priority: 'critical' | 'high' | 'medium' = 'medium';
+  if (urgentViolation.IS_HEALTH_BASED_IND === 'Y') {
+    priority = 'critical';
+  } else if (urgentViolation.PUBLIC_NOTIFICATION_TIER === 2) {
+    priority = 'high';
+  }
+  
+  // Get violation description
+  const violationDesc = getViolationCodeDescription(urgentViolation.VIOLATION_CODE);
+  const contaminantDesc = urgentViolation.CONTAMINANT_CODE ? 
+    getContaminantCodeDescription(urgentViolation.CONTAMINANT_CODE.toString()) : null;
+  
+  return {
+    actionType: 'violation',
+    priority,
+    title: violationDesc?.VALUE_DESCRIPTION || `Violation ${urgentViolation.VIOLATION_CODE}`,
+    description: contaminantDesc?.VALUE_DESCRIPTION || 'Compliance violation requires immediate attention',
+    daysRemaining,
+    violationCode: urgentViolation.VIOLATION_CODE,
+    contaminantCode: urgentViolation.CONTAMINANT_CODE?.toString(),
+    isHealthBased: urgentViolation.IS_HEALTH_BASED_IND === 'Y',
+    publicNotificationTier: urgentViolation.PUBLIC_NOTIFICATION_TIER || undefined,
+    actionId: urgentViolation.VIOLATION_ID
+  };
+}
+
+export function getComplianceAnalysis(pwsid: string): ComplianceAnalysis | null {
+  const system = getWaterSystemByPWSID(pwsid);
+  if (!system) return null;
+
+  // Get all violations for trend analysis
+  const allViolations = getViolationsByPWSID(pwsid);
+  const activeViolations = allViolations.filter(v => 
+    v.VIOLATION_STATUS !== 'Archived' && v.VIOLATION_STATUS !== 'Resolved'
+  );
+
+  const healthBased = activeViolations.filter(v => v.IS_HEALTH_BASED_IND === 'Y').length;
+  const procedural = activeViolations.filter(v => v.IS_HEALTH_BASED_IND !== 'Y').length;
+
+  // Calculate recent trend (comparing last year to previous year)
+  const currentYear = new Date().getFullYear();
+  const lastYearViolations = allViolations.filter(v => {
+    if (!v.COMPL_PER_BEGIN_DATE || v.COMPL_PER_BEGIN_DATE === 'nan') return false;
+    const year = parseInt(v.COMPL_PER_BEGIN_DATE.split('/')[2]);
+    return year === currentYear - 1;
+  }).length;
+
+  const previousYearViolations = allViolations.filter(v => {
+    if (!v.COMPL_PER_BEGIN_DATE || v.COMPL_PER_BEGIN_DATE === 'nan') return false;
+    const year = parseInt(v.COMPL_PER_BEGIN_DATE.split('/')[2]);
+    return year === currentYear - 2;
+  }).length;
+
+  let recentTrend = 'stable';
+  if (lastYearViolations < previousYearViolations) recentTrend = 'improving';
+  if (lastYearViolations > previousYearViolations) recentTrend = 'declining';
+
+  // Get inspection data
+  const recentVisits = getRecentSiteVisits(pwsid, 3);
+  const latestVisit = recentVisits.length > 0 ? recentVisits[0] : null;
+  
+  // Extract findings from recent inspections
+  const recentFindings: string[] = [];
+  recentVisits.forEach(visit => {
+    const findings = [];
+    if (visit.MANAGEMENT_OPS_EVAL_CODE === 'S') findings.push('Significant management/operations issues');
+    if (visit.MANAGEMENT_OPS_EVAL_CODE === 'M') findings.push('Minor management/operations issues');
+    if (visit.SOURCE_WATER_EVAL_CODE === 'S') findings.push('Significant source water issues');
+    if (visit.SOURCE_WATER_EVAL_CODE === 'M') findings.push('Minor source water issues');
+    if (visit.TREATMENT_EVAL_CODE === 'S') findings.push('Significant treatment issues');
+    if (visit.TREATMENT_EVAL_CODE === 'M') findings.push('Minor treatment issues');
+    if (visit.COMPLIANCE_EVAL_CODE === 'S') findings.push('Significant compliance issues');
+    if (visit.COMPLIANCE_EVAL_CODE === 'M') findings.push('Minor compliance issues');
+    
+    recentFindings.push(...findings);
+  });
+
+  const milestones = getEventMilestones(pwsid);
+
+  return {
+    system,
+    violations: {
+      active: activeViolations,
+      total: allViolations.length,
+      healthBased,
+      procedural,
+      recentTrend
+    },
+    inspections: {
+      latest: latestVisit,
+      recentFindings: [...new Set(recentFindings)] // Remove duplicates
+    },
+    milestones
+  };
 } 

@@ -1,5 +1,7 @@
 import { getWaterSystemByPWSID, getViolationCalendarData, ViolationCalendarData } from '@/lib/database';
 import ViolationCalendar from '@/components/violation-calendar';
+import AIComplianceSummary from '@/components/ai-compliance-summary';
+import CriticalActionBanner from '@/components/critical-action-banner';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 
@@ -115,6 +117,11 @@ export default function FacilityPage({ params }: FacilityPageProps) {
               <div className="text-amber-700 text-sm font-medium">Water Source</div>
             </div>
           </div>
+
+          {/* Critical Action Banner - Shows Most Urgent Action */}
+          <div className="mt-6">
+            <CriticalActionBanner pwsid={params.pwsid} />
+          </div>
         </div>
 
         {/* Violation Calendar - Full Width */}
@@ -127,24 +134,9 @@ export default function FacilityPage({ params }: FacilityPageProps) {
           />
         </div>
 
-        {/* AI Insights Placeholder */}
-        <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-2xl border border-purple-200 p-8 mt-8">
-          <div className="text-center">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">AI Compliance Intelligence</h3>
-            <p className="text-gray-600 mb-4 max-w-2xl mx-auto">
-              Our AI will analyze this system&apos;s compliance data to provide actionable insights, 
-              violation explanations, and recommended next steps for operators.
-            </p>
-            <div className="inline-flex items-center px-4 py-2 bg-white rounded-lg border border-purple-200">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-pulse mr-2"></div>
-              <span className="text-purple-700 font-medium">Feature in development</span>
-            </div>
-          </div>
+        {/* AI Compliance Intelligence */}
+        <div className="mt-8">
+          <AIComplianceSummary pwsid={params.pwsid} />
         </div>
       </main>
     </div>
