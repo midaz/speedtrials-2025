@@ -116,12 +116,20 @@ export function getViolationsByPWSID(pwsid: string, startDate?: string, endDate?
       RULE_CODE
     FROM sdwa_violations_enforcement 
     WHERE PWSID = ?
+      AND COMPL_PER_BEGIN_DATE IS NOT NULL 
+      AND COMPL_PER_BEGIN_DATE != 'nan'
   `;
   
   const params: (string)[] = [pwsid];
   
   if (startDate && endDate) {
-    query += ` AND COMPL_PER_BEGIN_DATE >= ? AND COMPL_PER_BEGIN_DATE <= ?`;
+    // Convert MM/DD/YYYY to YYYY-MM-DD for comparison
+    query += ` AND date(substr(COMPL_PER_BEGIN_DATE, 7, 4) || '-' || 
+                      printf('%02d', CAST(substr(COMPL_PER_BEGIN_DATE, 1, 2) AS INTEGER)) || '-' || 
+                      printf('%02d', CAST(substr(COMPL_PER_BEGIN_DATE, 4, 2) AS INTEGER))) >= date(?)
+               AND date(substr(COMPL_PER_BEGIN_DATE, 7, 4) || '-' || 
+                      printf('%02d', CAST(substr(COMPL_PER_BEGIN_DATE, 1, 2) AS INTEGER)) || '-' || 
+                      printf('%02d', CAST(substr(COMPL_PER_BEGIN_DATE, 4, 2) AS INTEGER))) <= date(?)`;
     params.push(startDate, endDate);
   }
   
@@ -138,13 +146,20 @@ export function getViolationCalendarData(pwsid: string, startDate: string, endDa
   const violationsByDate = new Map<string, Violation[]>();
   
   violations.forEach(violation => {
-    if (violation.COMPL_PER_BEGIN_DATE) {
-      // Convert date to YYYY-MM-DD format
-      const date = new Date(violation.COMPL_PER_BEGIN_DATE).toISOString().split('T')[0];
-      if (!violationsByDate.has(date)) {
-        violationsByDate.set(date, []);
+    if (violation.COMPL_PER_BEGIN_DATE && violation.COMPL_PER_BEGIN_DATE !== 'nan') {
+      // Convert MM/DD/YYYY to YYYY-MM-DD format
+      const dateParts = violation.COMPL_PER_BEGIN_DATE.split('/');
+      if (dateParts.length === 3) {
+        const month = dateParts[0].padStart(2, '0');
+        const day = dateParts[1].padStart(2, '0');
+        const year = dateParts[2];
+        const date = `${year}-${month}-${day}`;
+        
+        if (!violationsByDate.has(date)) {
+          violationsByDate.set(date, []);
+        }
+        violationsByDate.get(date)!.push(violation);
       }
-      violationsByDate.get(date)!.push(violation);
     }
   });
   

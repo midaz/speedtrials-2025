@@ -10,112 +10,113 @@ interface ViolationCalendarProps {
   totalViolations: number;
 }
 
-interface ViolationModalProps {
-  isOpen: boolean;
-  onClose: () => void;
+interface ViolationDetailsProps {
   date: string;
   violations: Violation[];
+  onClose: () => void;
 }
 
-function ViolationModal({ isOpen, onClose, date, violations }: ViolationModalProps) {
-  if (!isOpen) return null;
-
+function ViolationDetails({ date, violations, onClose }: ViolationDetailsProps) {
   const healthBasedViolations = violations.filter(v => v.IS_HEALTH_BASED_IND === 'Y');
   const proceduralViolations = violations.filter(v => v.IS_HEALTH_BASED_IND !== 'Y');
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full mx-4 max-h-[80vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold text-gray-900">
-              Violations on {new Date(date).toLocaleDateString()}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 text-2xl"
-            >
-              ×
-            </button>
-          </div>
+    <div className="mt-6 bg-blue-50/50 rounded-xl border border-blue-200 overflow-hidden transition-all duration-300 ease-in-out">
+      <div className="p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-xl font-bold text-gray-900 flex items-center">
+            <svg className="w-5 h-5 text-blue-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            Violations on {new Date(date).toLocaleDateString()}
+          </h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 hover:bg-white rounded-full p-1 transition-colors"
+            title="Close details"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-          <div className="space-y-4">
-            {healthBasedViolations.length > 0 && (
-              <div>
-                <h4 className="text-lg font-semibold text-red-800 mb-2 flex items-center">
-                  <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
-                  Health-Based Violations ({healthBasedViolations.length})
-                </h4>
-                <div className="space-y-2">
-                  {healthBasedViolations.map((violation) => (
-                    <div key={violation.VIOLATION_ID} className="bg-red-50 border border-red-200 rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium text-red-900">
-                            Code: {violation.VIOLATION_CODE}
-                          </div>
-                          <div className="text-sm text-red-700">
-                            Category: {violation.VIOLATION_CATEGORY_CODE}
-                          </div>
-                          <div className="text-sm text-red-600">
-                            Status: {violation.VIOLATION_STATUS}
-                          </div>
+        <div className="space-y-4">
+          {healthBasedViolations.length > 0 && (
+            <div>
+              <h4 className="text-lg font-semibold text-red-800 mb-3 flex items-center">
+                <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+                Health-Based Violations ({healthBasedViolations.length})
+              </h4>
+              <div className="space-y-3">
+                {healthBasedViolations.map((violation) => (
+                  <div key={violation.VIOLATION_ID} className="bg-white border border-red-200 rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-medium text-red-900 mb-1">
+                          Code: {violation.VIOLATION_CODE}
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs text-red-600">
-                            Rule: {violation.RULE_CODE}
-                          </div>
-                          {violation.IS_MAJOR_VIOL_IND === 'Y' && (
-                            <span className="inline-block mt-1 px-2 py-1 bg-red-200 text-red-800 text-xs rounded">
-                              Major
-                            </span>
-                          )}
+                        <div className="text-sm text-red-700 mb-1">
+                          Category: {violation.VIOLATION_CATEGORY_CODE}
+                        </div>
+                        <div className="text-sm text-red-600">
+                          Status: {violation.VIOLATION_STATUS}
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {proceduralViolations.length > 0 && (
-              <div>
-                <h4 className="text-lg font-semibold text-orange-800 mb-2 flex items-center">
-                  <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
-                  Procedural Violations ({proceduralViolations.length})
-                </h4>
-                <div className="space-y-2">
-                  {proceduralViolations.map((violation) => (
-                    <div key={violation.VIOLATION_ID} className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium text-orange-900">
-                            Code: {violation.VIOLATION_CODE}
-                          </div>
-                          <div className="text-sm text-orange-700">
-                            Category: {violation.VIOLATION_CATEGORY_CODE}
-                          </div>
-                          <div className="text-sm text-orange-600">
-                            Status: {violation.VIOLATION_STATUS}
-                          </div>
+                      <div className="text-right">
+                        <div className="text-xs text-red-600 mb-2">
+                          Rule: {violation.RULE_CODE}
                         </div>
-                        <div className="text-right">
-                          <div className="text-xs text-orange-600">
-                            Rule: {violation.RULE_CODE}
-                          </div>
-                          {violation.IS_MAJOR_VIOL_IND === 'Y' && (
-                            <span className="inline-block mt-1 px-2 py-1 bg-orange-200 text-orange-800 text-xs rounded">
-                              Major
-                            </span>
-                          )}
-                        </div>
+                        {violation.IS_MAJOR_VIOL_IND === 'Y' && (
+                          <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                            Major
+                          </span>
+                        )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {proceduralViolations.length > 0 && (
+            <div>
+              <h4 className="text-lg font-semibold text-orange-800 mb-3 flex items-center">
+                <div className="w-3 h-3 bg-orange-500 rounded-full mr-2"></div>
+                Procedural Violations ({proceduralViolations.length})
+              </h4>
+              <div className="space-y-3">
+                {proceduralViolations.map((violation) => (
+                  <div key={violation.VIOLATION_ID} className="bg-white border border-orange-200 rounded-lg p-4 shadow-sm">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="font-medium text-orange-900 mb-1">
+                          Code: {violation.VIOLATION_CODE}
+                        </div>
+                        <div className="text-sm text-orange-700 mb-1">
+                          Category: {violation.VIOLATION_CATEGORY_CODE}
+                        </div>
+                        <div className="text-sm text-orange-600">
+                          Status: {violation.VIOLATION_STATUS}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-orange-600 mb-2">
+                          Rule: {violation.RULE_CODE}
+                        </div>
+                        {violation.IS_MAJOR_VIOL_IND === 'Y' && (
+                          <span className="inline-block px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                            Major
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -155,9 +156,7 @@ function generateYearDays(year: number) {
 }
 
 export default function ViolationCalendar({ data, from, to, totalViolations }: ViolationCalendarProps) {
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedViolations, setSelectedViolations] = useState<Violation[]>([]);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<{ date: string; violations: Violation[] } | null>(null);
   
   // Year navigation state
   const currentYear = new Date().getFullYear();
@@ -198,20 +197,30 @@ export default function ViolationCalendar({ data, from, to, totalViolations }: V
   const handlePreviousYear = () => {
     if (selectedYear > startYear) {
       setSelectedYear(selectedYear - 1);
+      setSelectedDay(null); // Close details when changing years
     }
   };
 
   const handleNextYear = () => {
     if (selectedYear < endYear) {
       setSelectedYear(selectedYear + 1);
+      setSelectedDay(null); // Close details when changing years
     }
   };
 
   const handleDayClick = (date: Date, dayData?: ViolationCalendarData) => {
     if (dayData && dayData.violations.length > 0) {
-      setSelectedDate(date.toISOString().split('T')[0]);
-      setSelectedViolations(dayData.violations);
-      setIsModalOpen(true);
+      const dateString = date.toISOString().split('T')[0];
+      
+      // Toggle: if clicking the same day, close the details
+      if (selectedDay && selectedDay.date === dateString) {
+        setSelectedDay(null);
+      } else {
+        setSelectedDay({
+          date: dateString,
+          violations: dayData.violations
+        });
+      }
     }
   };
 
@@ -271,7 +280,7 @@ export default function ViolationCalendar({ data, from, to, totalViolations }: V
         </div>
         
         <p className="text-gray-600">
-          Click on any day with violations to see details. Darker colors indicate more severe violations.
+          Click on any day with violations to see details below. Click the same day again or the close button to hide details. Darker colors indicate more severe violations.
         </p>
       </div>
 
@@ -305,14 +314,16 @@ export default function ViolationCalendar({ data, from, to, totalViolations }: V
                   const dayData = violationMap.get(dateString);
                   const isCurrentYear = day.getFullYear() === selectedYear;
                   const violationLevel = dayData ? getViolationLevel(dayData.value) : 'bg-gray-100';
+                  const isSelected = selectedDay && selectedDay.date === dateString;
                   
                   return (
                     <div
                       key={`${weekIndex}-${dayIndex}`}
                       className={`
-                        w-3 h-3 rounded-sm cursor-pointer border border-white
+                        w-3 h-3 rounded-sm cursor-pointer border-2 transition-all duration-200
                         ${isCurrentYear ? violationLevel : 'bg-gray-50'}
-                        ${dayData?.violations.length ? 'hover:ring-2 hover:ring-blue-300' : ''}
+                        ${dayData?.violations.length ? 'hover:ring-2 hover:ring-blue-300 hover:scale-110' : ''}
+                        ${isSelected ? 'border-blue-500 ring-2 ring-blue-300 scale-110' : 'border-white'}
                       `}
                       onClick={() => isCurrentYear && handleDayClick(day, dayData)}
                       title={
@@ -348,18 +359,17 @@ export default function ViolationCalendar({ data, from, to, totalViolations }: V
           <div className="font-medium">
             {selectedYear}: {yearData.reduce((sum, d) => sum + d.violations.length, 0)} violations
           </div>
-          <div className="text-gray-500 text-xs mt-1">
-            Total since 1985: {totalViolations.toLocaleString()}
-          </div>
         </div>
       </div>
 
-      <ViolationModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        date={selectedDate || ''}
-        violations={selectedViolations}
-      />
+      {/* Inline violation details */}
+      {selectedDay && (
+        <ViolationDetails
+          date={selectedDay.date}
+          violations={selectedDay.violations}
+          onClose={() => setSelectedDay(null)}
+        />
+      )}
     </div>
   );
 } 
