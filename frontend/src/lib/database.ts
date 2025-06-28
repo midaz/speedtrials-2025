@@ -5,7 +5,7 @@ let db: Database.Database | null = null;
 
 export function getDatabase() {
   if (!db) {
-    const dbPath = path.join(process.cwd(), 'h2operator.db');
+    const dbPath = path.join(process.cwd(), '..', 'h2operator.db');
     db = new Database(dbPath, { readonly: true });
   }
   return db;
