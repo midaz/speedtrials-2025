@@ -1,7 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ViolationCalendarData, Violation } from '@/lib/database';
+
+interface AIExplanation {
+  title: string;
+  explanation: string;
+  actionNeeded: string;
+  whyItMatters: string;
+  urgency: string;
+  timeframe: string;
+}
 
 interface ViolationCalendarProps {
   data: ViolationCalendarData[];
@@ -17,8 +26,59 @@ interface ViolationDetailsProps {
 }
 
 function ViolationDetails({ date, violations, onClose }: ViolationDetailsProps) {
+  const [explanations, setExplanations] = useState<Map<string, AIExplanation>>(new Map());
+  const [loadingExplanations, setLoadingExplanations] = useState<Set<string>>(new Set());
+  
   const healthBasedViolations = violations.filter(v => v.IS_HEALTH_BASED_IND === 'Y');
   const proceduralViolations = violations.filter(v => v.IS_HEALTH_BASED_IND !== 'Y');
+
+  // Auto-fetch AI explanations when violations change
+  useEffect(() => {
+    const fetchExplanations = async () => {
+      const newLoadingSet = new Set<string>();
+      
+      for (const violation of violations) {
+        const violationKey = violation.VIOLATION_ID;
+        
+        // Skip if we already have this explanation
+        if (explanations.has(violationKey)) continue;
+        
+        newLoadingSet.add(violationKey);
+        
+        try {
+          const response = await fetch('/api/violation/explain', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              violationCode: violation.VIOLATION_CODE,
+              violationCategory: violation.VIOLATION_CATEGORY_CODE,
+              ruleCode: violation.RULE_CODE,
+              isHealthBased: violation.IS_HEALTH_BASED_IND,
+              isMajor: violation.IS_MAJOR_VIOL_IND,
+              contaminantCode: violation.CONTAMINANT_CODE,
+            }),
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            setExplanations(prev => new Map(prev).set(violationKey, data.explanation));
+          }
+        } catch (error) {
+          console.error('Failed to fetch explanation for violation:', violationKey, error);
+        } finally {
+          newLoadingSet.delete(violationKey);
+        }
+      }
+      
+      setLoadingExplanations(newLoadingSet);
+    };
+
+    if (violations.length > 0) {
+      fetchExplanations();
+    }
+  }, [violations, explanations]);
 
   return (
     <div className="mt-6 bg-blue-50/50 rounded-xl border border-blue-200 overflow-hidden transition-all duration-300 ease-in-out">
@@ -49,33 +109,100 @@ function ViolationDetails({ date, violations, onClose }: ViolationDetailsProps) 
                 Health-Based Violations ({healthBasedViolations.length})
               </h4>
               <div className="space-y-3">
-                {healthBasedViolations.map((violation) => (
-                  <div key={violation.VIOLATION_ID} className="bg-white border border-red-200 rounded-lg p-4 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="font-medium text-red-900 mb-1">
-                          Code: {violation.VIOLATION_CODE}
+                {healthBasedViolations.map((violation) => {
+                  const explanation = explanations.get(violation.VIOLATION_ID);
+                  const isLoading = loadingExplanations.has(violation.VIOLATION_ID);
+                  
+                  return (
+                    <div key={violation.VIOLATION_ID} className="bg-white border border-red-200 rounded-lg shadow-sm overflow-hidden">
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="font-medium text-red-900 mb-1">
+                              Code: {violation.VIOLATION_CODE}
+                            </div>
+                            <div className="text-sm text-red-700 mb-1">
+                              Category: {violation.VIOLATION_CATEGORY_CODE}
+                            </div>
+                            <div className="text-sm text-red-600">
+                              Status: {violation.VIOLATION_STATUS}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-red-600 mb-2">
+                              Rule: {violation.RULE_CODE}
+                            </div>
+                            {violation.IS_MAJOR_VIOL_IND === 'Y' && (
+                              <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
+                                Major
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-sm text-red-700 mb-1">
-                          Category: {violation.VIOLATION_CATEGORY_CODE}
-                        </div>
-                        <div className="text-sm text-red-600">
-                          Status: {violation.VIOLATION_STATUS}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-red-600 mb-2">
-                          Rule: {violation.RULE_CODE}
-                        </div>
-                        {violation.IS_MAJOR_VIOL_IND === 'Y' && (
-                          <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs rounded-full font-medium">
-                            Major
-                          </span>
+                        
+                        {/* AI Explanation */}
+                        {isLoading && (
+                          <div className="bg-red-50 border border-red-100 rounded-lg p-3 mt-3">
+                            <div className="flex items-center text-red-700">
+                              <svg className="animate-spin -ml-1 mr-3 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-sm font-medium">🤖 AI analyzing violation...</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {explanation && (
+                          <div className="bg-red-50 border border-red-100 rounded-lg p-3 mt-3">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mr-2">
+                                <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-red-900 mb-2">
+                                  🤖 {explanation.title}
+                                </h4>
+                                <p className="text-sm text-red-800 mb-3">
+                                  {explanation.explanation}
+                                </p>
+                                <div className="space-y-2">
+                                  <div>
+                                    <h5 className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
+                                      Action Needed:
+                                    </h5>
+                                    <p className="text-sm text-red-700">
+                                      {explanation.actionNeeded}
+                                    </p>
+                                  </div>
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <h5 className="text-xs font-semibold text-red-700 uppercase tracking-wide mb-1">
+                                        Why it matters:
+                                      </h5>
+                                      <p className="text-xs text-red-600">
+                                        {explanation.whyItMatters}
+                                      </p>
+                                    </div>
+                                    <div className="ml-4">
+                                      <span className="inline-block px-2 py-1 bg-red-200 text-red-800 text-xs rounded-full font-medium">
+                                        {explanation.timeframe}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -87,33 +214,100 @@ function ViolationDetails({ date, violations, onClose }: ViolationDetailsProps) 
                 Procedural Violations ({proceduralViolations.length})
               </h4>
               <div className="space-y-3">
-                {proceduralViolations.map((violation) => (
-                  <div key={violation.VIOLATION_ID} className="bg-white border border-orange-200 rounded-lg p-4 shadow-sm">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <div className="font-medium text-orange-900 mb-1">
-                          Code: {violation.VIOLATION_CODE}
+                {proceduralViolations.map((violation) => {
+                  const explanation = explanations.get(violation.VIOLATION_ID);
+                  const isLoading = loadingExplanations.has(violation.VIOLATION_ID);
+                  
+                  return (
+                    <div key={violation.VIOLATION_ID} className="bg-white border border-orange-200 rounded-lg shadow-sm overflow-hidden">
+                      <div className="p-4">
+                        <div className="flex justify-between items-start mb-3">
+                          <div className="flex-1">
+                            <div className="font-medium text-orange-900 mb-1">
+                              Code: {violation.VIOLATION_CODE}
+                            </div>
+                            <div className="text-sm text-orange-700 mb-1">
+                              Category: {violation.VIOLATION_CATEGORY_CODE}
+                            </div>
+                            <div className="text-sm text-orange-600">
+                              Status: {violation.VIOLATION_STATUS}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-orange-600 mb-2">
+                              Rule: {violation.RULE_CODE}
+                            </div>
+                            {violation.IS_MAJOR_VIOL_IND === 'Y' && (
+                              <span className="inline-block px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
+                                Major
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="text-sm text-orange-700 mb-1">
-                          Category: {violation.VIOLATION_CATEGORY_CODE}
-                        </div>
-                        <div className="text-sm text-orange-600">
-                          Status: {violation.VIOLATION_STATUS}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-orange-600 mb-2">
-                          Rule: {violation.RULE_CODE}
-                        </div>
-                        {violation.IS_MAJOR_VIOL_IND === 'Y' && (
-                          <span className="inline-block px-2 py-1 bg-orange-100 text-orange-800 text-xs rounded-full font-medium">
-                            Major
-                          </span>
+                        
+                        {/* AI Explanation */}
+                        {isLoading && (
+                          <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 mt-3">
+                            <div className="flex items-center text-orange-700">
+                              <svg className="animate-spin -ml-1 mr-3 h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                              </svg>
+                              <span className="text-sm font-medium">🤖 AI analyzing violation...</span>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {explanation && (
+                          <div className="bg-orange-50 border border-orange-100 rounded-lg p-3 mt-3">
+                            <div className="flex items-start">
+                              <div className="flex-shrink-0 mr-2">
+                                <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center">
+                                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                  </svg>
+                                </div>
+                              </div>
+                              <div className="flex-1">
+                                <h4 className="font-semibold text-orange-900 mb-2">
+                                  🤖 {explanation.title}
+                                </h4>
+                                <p className="text-sm text-orange-800 mb-3">
+                                  {explanation.explanation}
+                                </p>
+                                <div className="space-y-2">
+                                  <div>
+                                    <h5 className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
+                                      Action Needed:
+                                    </h5>
+                                    <p className="text-sm text-orange-700">
+                                      {explanation.actionNeeded}
+                                    </p>
+                                  </div>
+                                  <div className="flex justify-between items-start">
+                                    <div className="flex-1">
+                                      <h5 className="text-xs font-semibold text-orange-700 uppercase tracking-wide mb-1">
+                                        Why it matters:
+                                      </h5>
+                                      <p className="text-xs text-orange-600">
+                                        {explanation.whyItMatters}
+                                      </p>
+                                    </div>
+                                    <div className="ml-4">
+                                      <span className="inline-block px-2 py-1 bg-orange-200 text-orange-800 text-xs rounded-full font-medium">
+                                        {explanation.timeframe}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
                         )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

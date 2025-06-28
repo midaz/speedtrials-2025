@@ -53,6 +53,11 @@ export interface TopViolator {
   violation_count: number;
 }
 
+export interface ViolationCodeDescription {
+  VALUE_CODE: string;
+  VALUE_DESCRIPTION: string;
+}
+
 export function searchWaterSystems(query: string): WaterSystem[] {
   const database = getDatabase();
   
@@ -220,4 +225,28 @@ export function getTopViolators(limit: number = 30): TopViolator[] {
   `);
   
   return stmt.all(limit) as TopViolator[];
+}
+
+export function getViolationCodeDescription(violationCode: string): ViolationCodeDescription | null {
+  const database = getDatabase();
+  
+  const stmt = database.prepare(`
+    SELECT VALUE_CODE, VALUE_DESCRIPTION
+    FROM sdwa_ref_code_values 
+    WHERE VALUE_TYPE = 'VIOLATION_CODE' AND VALUE_CODE = ?
+  `);
+  
+  return stmt.get(violationCode) as ViolationCodeDescription | null;
+}
+
+export function getContaminantCodeDescription(contaminantCode: string): ViolationCodeDescription | null {
+  const database = getDatabase();
+  
+  const stmt = database.prepare(`
+    SELECT VALUE_CODE, VALUE_DESCRIPTION
+    FROM sdwa_ref_code_values 
+    WHERE VALUE_TYPE = 'CONTAMINANT_CODE' AND VALUE_CODE = ?
+  `);
+  
+  return stmt.get(contaminantCode) as ViolationCodeDescription | null;
 } 
