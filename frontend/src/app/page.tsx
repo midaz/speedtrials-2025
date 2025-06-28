@@ -1,14 +1,38 @@
 'use client';
 
-import { useState } from 'react';
-import { WaterSystem } from '@/lib/database';
+import { useState, useEffect } from 'react';
+import { WaterSystem, TopViolator } from '@/lib/database';
 import Link from 'next/link';
 
 export default function HomePage() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<WaterSystem[]>([]);
+  const [topViolators, setTopViolators] = useState<TopViolator[]>([]);
   const [loading, setLoading] = useState(false);
+  const [topViolatorsLoading, setTopViolatorsLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Fetch top violators on page load
+  useEffect(() => {
+    const fetchTopViolators = async () => {
+      try {
+        const response = await fetch('/api/top-violators');
+        const data = await response.json();
+        
+        if (response.ok) {
+          setTopViolators(data.results);
+        } else {
+          console.error('Failed to fetch top violators:', data.error);
+        }
+      } catch (error) {
+        console.error('Error fetching top violators:', error);
+      } finally {
+        setTopViolatorsLoading(false);
+      }
+    };
+
+    fetchTopViolators();
+  }, []);
 
   const handleSearch = async (searchQuery: string) => {
     if (searchQuery.trim().length < 2) {
@@ -39,6 +63,9 @@ export default function HomePage() {
     setQuery(value);
     handleSearch(value);
   };
+
+  // Show violations table only when no search query or results
+  const showViolationsTable = query.length < 2 && results.length === 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 flex flex-col">
@@ -103,9 +130,9 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Results Section */}
+        {/* Search Results Section */}
         {results.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden mb-8">
             <div className="px-6 py-4 bg-gradient-to-r from-blue-50 to-cyan-50 border-b border-blue-100">
               <h3 className="text-lg font-semibold text-gray-900">
                 Found {results.length} water system{results.length !== 1 ? 's' : ''}
@@ -140,6 +167,71 @@ export default function HomePage() {
                 </Link>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Top Violators Table */}
+        {showViolationsTable && (
+          <div className="bg-white rounded-2xl shadow-xl border border-blue-100 overflow-hidden mb-8">
+            <div className="px-6 py-4 bg-gradient-to-r from-red-50 to-orange-50 border-b border-red-100">
+              <h3 className="text-lg font-semibold text-gray-900">
+                Top Facilities by Violations
+              </h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Water systems with the highest number of compliance violations
+              </p>
+            </div>
+            
+            {topViolatorsLoading ? (
+              <div className="px-6 py-12 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading violations data...</p>
+              </div>
+            ) : (
+              <div className="overflow-hidden">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Facility Name
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        City
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Total Violations
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {topViolators.map((violator) => (
+                      <Link
+                        key={violator.PWSID}
+                        href={`/facility/${violator.PWSID}`}
+                        className="table-row hover:bg-red-50 transition-colors cursor-pointer"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {violator.PWS_NAME}
+                          </div>
+                          <div className="text-xs text-gray-500 font-mono">
+                            {violator.PWSID}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {violator.CITY_NAME}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                            {violator.violation_count.toLocaleString()}
+                          </span>
+                        </td>
+                      </Link>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 

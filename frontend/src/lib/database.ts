@@ -46,6 +46,13 @@ export interface ViolationCalendarData {
   violations: Violation[];
 }
 
+export interface TopViolator {
+  PWSID: string;
+  PWS_NAME: string;
+  CITY_NAME: string;
+  violation_count: number;
+}
+
 export function searchWaterSystems(query: string): WaterSystem[] {
   const database = getDatabase();
   
@@ -192,4 +199,25 @@ export function getViolationCalendarData(pwsid: string, startDate: string, endDa
   });
   
   return calendarData;
+}
+
+export function getTopViolators(limit: number = 30): TopViolator[] {
+  const database = getDatabase();
+  
+  const stmt = database.prepare(`
+    SELECT 
+      p.PWSID,
+      p.PWS_NAME,
+      p.CITY_NAME,
+      COUNT(v.VIOLATION_ID) as violation_count
+    FROM sdwa_pub_water_systems p 
+    LEFT JOIN sdwa_violations_enforcement v ON p.PWSID = v.PWSID
+    WHERE p.PWS_ACTIVITY_CODE = 'A'
+    GROUP BY p.PWSID
+    HAVING violation_count > 0
+    ORDER BY violation_count DESC
+    LIMIT ?
+  `);
+  
+  return stmt.all(limit) as TopViolator[];
 } 
