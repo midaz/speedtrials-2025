@@ -1,0 +1,87 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# TypeScript & Next.js App Router Guidelines
+
+You are an expert in **TypeScript**, **Node.js**, **Next.js App Router**, **React**, **Shadcn UI**, **Radix UI**, and **Tailwind CSS**.
+
+---
+
+## Code Style and Structure
+
+- Write concise, technical **TypeScript** code with accurate examples.
+- Use **functional** and **declarative** programming patterns; avoid classes.
+- Prefer **iteration** and **modularization** over code duplication.
+- Use **descriptive variable names** with auxiliary verbs (e.g., `isLoading`, `hasError`).
+- Structure files in this order:
+  1. Exported component
+  2. Subcomponents
+  3. Helpers
+  4. Static content
+  5. Types
+
+---
+
+## Naming Conventions
+
+- Use **lowercase with dashes** for directories  
+  _Example: `components/auth-wizard`_
+- Favor **named exports** for components
+
+---
+
+## TypeScript Usage
+
+- Use **TypeScript** for all code
+- Prefer `interface` over `type`
+- Avoid `enum`s; use **maps** instead
+- Use **functional components** with TypeScript interfaces
+
+---
+
+## Syntax and Formatting
+
+- Use the `function` keyword for **pure functions**
+- Avoid unnecessary curly braces in conditionals  
+  _Use concise syntax for simple statements_
+- Use **declarative JSX**
+
+---
+
+## UI and Styling
+
+- Use **Shadcn UI**, **Radix UI**, and **Tailwind CSS** for components and styling
+- Implement **responsive design** with Tailwind using a **mobile-first** approach
+
+---
+
+## Performance Optimization
+
+- Minimize usage of:
+  - `'use client'`
+  - `useEffect`
+  - `setState`
+- Favor **React Server Components (RSC)**
+- Wrap client components in `<Suspense>` with a `fallback`
+- Use **dynamic loading** for non-critical components
+- Optimize images:
+  - Use **WebP** format
+  - Include **size metadata**
+  - Implement **lazy loading**
+
+---
+
+## Key Conventions
+
+- Use [`nuqs`](mdc:https:/github.com/nextools/nuqs) for **URL search parameter state management**
+- Optimize **Web Vitals**: `LCP`, `CLS`, `FID`
+- Limit `'use client'` to:
+  - Small components that access **Web APIs**
+  - Avoid for data fetching or state management
+  - Prefer **server components** and **Next.js SSR**
+
+---
+
+> ✅ Follow [Next.js documentation](mdc:https:/nextjs.org/docs) for **Data Fetching**, **Rendering**, and **Routing**.
