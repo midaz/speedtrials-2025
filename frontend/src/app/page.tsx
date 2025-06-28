@@ -70,18 +70,18 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 flex flex-col">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-blue-100 sticky top-0 z-10">
+      <header className="bg-white/90 backdrop-blur-lg border-b border-blue-200 sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-center">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-xl flex items-center justify-center">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
+                <svg className="w-6 h-6 text-white drop-shadow-sm" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 008 10.172V5L8 4z" />
                 </svg>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">H2Operator</h1>
-                <p className="text-sm text-gray-600">Georgia Water Compliance Intelligence</p>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">H2Operator</h1>
+                <p className="text-sm text-gray-600 font-medium">Georgia Water Compliance Intelligence</p>
               </div>
             </div>
           </div>
@@ -143,15 +143,15 @@ export default function HomePage() {
                 <Link
                   key={system.PWSID}
                   href={`/facility/${system.PWSID}`}
-                  className="block px-6 py-4 hover:bg-blue-50 transition-colors"
+                  className="block px-6 py-4 hover:bg-gradient-to-r hover:from-blue-50 hover:to-cyan-50 hover:shadow-md transition-all duration-200 group"
                 >
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <h4 className="text-lg font-medium text-gray-900 mb-1">
+                      <h4 className="text-lg font-medium text-gray-900 mb-1 group-hover:text-blue-900 transition-colors">
                         {system.PWS_NAME}
                       </h4>
                       <div className="flex items-center space-x-4 text-sm text-gray-600">
-                        <span className="font-mono bg-gray-100 px-2 py-1 rounded">
+                        <span className="font-mono bg-gray-100 px-2 py-1 rounded group-hover:bg-blue-100 group-hover:text-blue-800 transition-all">
                           {system.PWSID}
                         </span>
                         <span>{system.CITY_NAME}, {system.STATE_CODE}</span>
@@ -159,7 +159,7 @@ export default function HomePage() {
                       </div>
                     </div>
                     <div className="ml-4">
-                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
@@ -183,9 +183,21 @@ export default function HomePage() {
             </div>
             
             {topViolatorsLoading ? (
-              <div className="px-6 py-12 text-center">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading violations data...</p>
+              <div className="divide-y divide-gray-100">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="px-6 py-4 animate-pulse">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="h-5 bg-gray-200 rounded-lg w-3/4 mb-2"></div>
+                        <div className="flex space-x-4">
+                          <div className="h-4 bg-gray-200 rounded w-24"></div>
+                          <div className="h-4 bg-gray-200 rounded w-32"></div>
+                        </div>
+                      </div>
+                      <div className="h-8 w-16 bg-gray-200 rounded-full"></div>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="overflow-hidden">
@@ -208,7 +220,7 @@ export default function HomePage() {
                       <Link
                         key={violator.PWSID}
                         href={`/facility/${violator.PWSID}`}
-                        className="table-row hover:bg-red-50 transition-colors cursor-pointer"
+                        className="table-row hover:bg-gradient-to-r hover:from-red-50 hover:to-orange-50 hover:shadow-sm transition-all duration-200 cursor-pointer group"
                       >
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
@@ -222,9 +234,26 @@ export default function HomePage() {
                           {violator.CITY_NAME}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                            {violator.violation_count.toLocaleString()}
-                          </span>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
+                                violator.violation_count >= 50 ? 'bg-red-100 text-red-800 animate-pulse' :
+                                violator.violation_count >= 20 ? 'bg-orange-100 text-orange-800' :
+                                violator.violation_count >= 10 ? 'bg-yellow-100 text-yellow-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {violator.violation_count >= 50 && (
+                                  <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                )}
+                                {violator.violation_count.toLocaleString()}
+                              </span>
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400 group-hover:text-gray-600 group-hover:translate-x-1 transition-all duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                          </div>
                         </td>
                       </Link>
                     ))}
